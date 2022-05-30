@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<module>
+	<name>shoplync_partial_shipments</name>
+	<displayName><![CDATA[Partial Shipment Notifier]]></displayName>
+	<version><![CDATA[1.0.0]]></version>
+	<description><![CDATA[Will notify the user about their order being sent out as a partial shipment and will display what exact items where shipped in each box.]]></description>
+	<author><![CDATA[Shoplync]]></author>
+	<tab><![CDATA[shipping_logistics]]></tab>
+	<is_configurable>1</is_configurable>
+	<need_instance>1</need_instance>
+</module>
