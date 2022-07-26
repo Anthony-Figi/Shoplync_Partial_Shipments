@@ -25,9 +25,31 @@
 */
 $sql = array();
 
-$sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'shoplync_partial_shipments` (
-    `id_shoplync_partial_shipments` int(11) NOT NULL AUTO_INCREMENT,
-    PRIMARY KEY  (`id_shoplync_partial_shipments`)
+$sql[0] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'sales_order_shipment` (
+    `id` int(11) NOT NULL AUTO_INCREMENT,
+    `shipment_id` int(11) NOT NULL,
+    `ps_order_id` int(10) unsigned NOT NULL,
+    `sales_order_id` int(11) NOT NULL,
+    `carrier_name` varchar(255) NOT NULL,
+    `tracking_number` varchar(255) NOT NULL,
+    `tracking_url` varchar(255) NOT NULL,
+    `shipped_date` timestamp NOT NULL,
+    PRIMARY KEY (`id`),
+    UNIQUE (`shipment_id`),
+    FOREIGN KEY (`ps_order_id`) REFERENCES ' . _DB_PREFIX_ . 'orders(`id_order`) ON DELETE NO ACTION
+) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';
+
+$sql[1] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'sales_order_shipment_detail` (
+    `id` int(11) NOT NULL AUTO_INCREMENT,
+    `shipment_detail_id` int(11) NOT NULL,
+    `shipment_id` int(11) NOT NULL,
+    `supplier_part_number` varchar(255) NOT NULL,
+    `mfg_part_number` varchar(255) NOT NULL,
+    `sku` varchar(255) NOT NULL,
+    `shipment_quantity` int(11) NOT NULL,
+    PRIMARY KEY (`id`),
+    UNIQUE(`shipment_detail_id`),
+    FOREIGN KEY (`shipment_id`) REFERENCES ' . _DB_PREFIX_ . 'sales_order_shipment(`shipment_id`) ON DELETE NO ACTION
 ) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';
 
 foreach ($sql as $query) {

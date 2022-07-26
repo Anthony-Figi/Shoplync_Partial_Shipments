@@ -28,6 +28,10 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+//Include the class of the new model 
+include_once dirname (__FILE__).'/classes/sales_order_shipment.php';
+include_once dirname (__FILE__).'/classes/sales_order_shipment_detail.php';
+
 class Shoplync_partial_shipments extends Module
 {
     protected $config_form = false;
@@ -40,6 +44,8 @@ class Shoplync_partial_shipments extends Module
         $this->author = 'Shoplync';
         $this->need_instance = 0;
 
+
+        $this->controllers = array('query');
         /**
          * Set $this->bootstrap to true if your module is compliant with bootstrap (PrestaShop 1.6)
          */
@@ -61,23 +67,23 @@ class Shoplync_partial_shipments extends Module
      */
     public function install()
     {
-        Configuration::updateValue('SHOPLYNC_PARTIAL_SHIPMENTS_LIVE_MODE', false);
-        Configuration::updateValue('SHOPLYNC_PARTIAL_SHIPMENTS_ORDER_STATUS', null);
+        Configuration::updateValue('SHOPLYNC_PARTIAL_SHIPMENTS_LIVE_MODE', true);
 
         include(dirname(__FILE__).'/sql/install.php');
 
         return parent::install() &&
             $this->registerHook('header') &&
             $this->registerHook('displayHeader') &&
-            $this->registerHook('backOfficeHeader') &&
+            $this->registerHook('displayOrderDetail') &&
+            $this->registerHook('displayBackOfficeHeader') &&
             $this->registerHook('actionOrderStatusPostUpdate') &&
+            $this->registerHook('addWebserviceResources') &&
             $this->registerHook('actionOrderStatusUpdate');
     }
 
     public function uninstall()
     {
         Configuration::deleteByName('SHOPLYNC_PARTIAL_SHIPMENTS_LIVE_MODE');
-        Configuration::deleteByName('SHOPLYNC_PARTIAL_SHIPMENTS_ORDER_STATUS');
 
         include(dirname(__FILE__).'/sql/uninstall.php');
 
@@ -176,28 +182,6 @@ class Shoplync_partial_shipments extends Module
                             )
                         ),
                     ),
-                    array(
-                        'type' => 'select',
-                        'label' => 'Select An Order Status',
-                        'name' => 'SHOPLYNC_PARTIAL_SHIPMENTS_ORDER_STATUS',
-                        'class' => 'chosen',
-                        'options' => array(
-                            'optiongroup'=>array(
-                                'label'=>'label',
-                                'query'=>array(
-                                    array(
-                                        'label'=>'Select A Vehicle',
-                                        'options'=> self::GetOrderStatuses(),
-                                    )
-                                ),
-                            ),
-                            'options'=>array(
-                                 'query'=>'options',
-                                 'id'=>'id_order_state',
-                                 'name'=>'name'
-                            )
-                        ),
-                    ),
                 ),
                 'submit' => array(
                     'title' => $this->l('Save'),
@@ -213,8 +197,6 @@ class Shoplync_partial_shipments extends Module
     {
         return array(
             'SHOPLYNC_PARTIAL_SHIPMENTS_LIVE_MODE' => Configuration::get('SHOPLYNC_PARTIAL_SHIPMENTS_LIVE_MODE', true),
-            'SHOPLYNC_PARTIAL_SHIPMENTS_ACCOUNT_EMAIL' => Configuration::get('SHOPLYNC_PARTIAL_SHIPMENTS_ACCOUNT_EMAIL', 'contact@prestashop.com'),
-            'SHOPLYNC_PARTIAL_SHIPMENTS_ACCOUNT_PASSWORD' => Configuration::get('SHOPLYNC_PARTIAL_SHIPMENTS_ACCOUNT_PASSWORD', null),
         );
     }
 
@@ -248,16 +230,79 @@ class Shoplync_partial_shipments extends Module
     {
         $this->context->controller->addJS($this->_path.'/views/js/front.js');
         $this->context->controller->addCSS($this->_path.'/views/css/front.css');
+        
+        Media::addJsDef([
+            'shipmentajax_link' => $this->context->link->getModuleLink('shoplync_partial_shipments', 'query', array(), true),
+        ]);
     }
 
     public function hookActionOrderStatusPostUpdate($params)
     {
-        error_log('params available'.print_r($params, true));
-        /* Place your code here. */
+    }
+    public static function GetShipments($order_id)
+    {
+        if(!is_null($order_id) && isset($order_id))
+        {
+            $sql = 'SELECT * FROM `' . _DB_PREFIX_ . 'sales_order_shipment` WHERE ps_order_id = '.$order_id;
+            $result = Db::getInstance()->executeS($sql);
+        
+            if(empty($result))
+                return [];
+            
+            return $result;
+        }
+    }
+    public static function GetSingleShipment($shipment_id)
+    {
+        if(!is_null($shipment_id) && isset($shipment_id))
+        {
+            $sql = 'SELECT * FROM `' . _DB_PREFIX_ . 'sales_order_shipment` WHERE shipment_id = '.$shipment_id;
+            $result = Db::getInstance()->executeS($sql);
+        
+            if(empty($result))
+                return [];
+            
+            return $result;
+        }
     }
 
+    public function hookDisplayOrderDetail($params)
+    {
+        $shipmentElement = '<!-- No Shipments to list -->';
+        //error_log("params od: ".$params['order']->id);
+        
+        $shipments = self::GetShipments($params['order']->id);
+        if(!empty($shipments) && Configuration::get('SHOPLYNC_PARTIAL_SHIPMENTS_LIVE_MODE', true))
+        {
+            $options = [];
+            foreach($shipments as $shipment)
+            {
+                array_push($options, '<option value="'.$shipment['shipment_id'].'">'.$shipment['tracking_number'].'</option>');
+            }
+            
+            $shipmentElement = '<div class="box text-center">'
+                .'<h3>Items In Shipment</h3>'
+                .'<select name="tracking_numbers" class="form-control form-control-select" onchange="getShipments(this)">'
+                .'<option value>-- Please Select A Shipment --</option>'
+                .implode('', $options)
+                .'</select>'
+                .'<div id="shipmentDetailsTable"></div>'
+                .'</div>';
+        }
+        return $shipmentElement;
+    }
+    
     public function hookActionOrderStatusUpdate()
     {
         /* Place your code here. */
+    }
+    
+    public function hookAddWebserviceResources()
+    {
+        return array(
+            'sales_order_shipments' => array('description' => 'Manage Sales Order Shipments', 'class' => 'sales_order_shipment'),
+            'sales_order_shipment_details' => array('description' => 'Manage Sales Order Shipment Details', 'class' => 'sales_order_shipment_detail'),
+        );
+     
     }
 }
